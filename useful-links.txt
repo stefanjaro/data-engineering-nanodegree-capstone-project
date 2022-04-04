@@ -1,0 +1,2 @@
+https://www.startdataengineering.com/post/how-to-submit-spark-jobs-to-emr-cluster-from-airflow/
+https://blog.insightdatascience.com/scheduling-spark-jobs-with-airflow-4c66f3144660
