@@ -1,4 +1,6 @@
-# US Immigration and Climate Change - A Udacity Capstone Project for the Data Engineering Nanodegree
+# Udacity Capstone Project: US Immigration, Demographics, and Climate Change
+
+This is a Capstone Project for the Udacity Data Engineering Nanodegree.
 
 # Project Summary
 
@@ -20,6 +22,7 @@ Furthermore, our climate scientists would also like to determine if there is a c
 * The demographics of a city and/or state
 * The demographics of the travellers (resident country, gender, and age)
 * The airline used by foreign travellers
+* The number and variety of transportation ports in a city and/or state 
 
 ## Technology
 
@@ -50,11 +53,45 @@ We have 4 datasets provided by Udacity:
 
 # Data Exploration
 
-An iPython Notebook was used to explore the data (or sample data) and can be found in the following repository location: `/supplementary-scripts/data-exploration.ipynb`. 
+An iPython Notebook was used to explore the data (or sample data) and can be found in the following repository location: `/supplementary-scripts/data-exploration.ipynb`.
 
-## Findings
+The findings below contain both observations and ideas on how the data should be cleaned or transformed.
 
+### I-94 Immigration Data
 
+* A lot of the data is codified and must be expanded using the reference data provided in the `I94_SAS_Labels_Description.SAS` file. Codified data includes `i94cit`, `i94res`, `i94port`, and `i94mode` among others.
+* According to the reference data in the `I94_SAS_Labels_Description.SAS` file, some of the codes are invalid or should not be used. For key fields like `i94port`, these must be removed from the dataset so eventual analyses aren't based off erroneous data.
+* The `arrdate` or arrival date is stored as an SAS numeric date. This means it indicates the number of days either before (negative values) or after (positive values) the 1st of January, 1960.
+* There are fields that are codified but have no reference data in the `I94_SAS_Labels_Description.SAS` file. The fields include (but are not limited to): `occup`, `entdepa`, `entdepd`, and `entdepu`.
+* Less than 0.01% of records in the sample dataset do not have an `i94mode` value. But more than 99% of records do not have an `occup` value, `insnum` value or an `entdepu` value. The nulls are unlikely missing values and more than likely have a meaning. Nevertheless, these aren't necessary for our project's analytics use cases.
+* However, 13.38% of records do not have a `gender` value. These will need to be filled in. Since we can't infer the gender, we could fill it in with an "O" for "Other".
+* The parquet file-based sample dataset provided alone was very large. We cannot clean and aggregate this data on a single machine.
 
+### Airport Codes Data
 
+* The dataset contains non-US ports as well which will need to be filtered out.
+* The state of the US port is included in the `iso_region` column following a hyphen. It'll need to be split out. There are no records without `iso_region` values.
+* The majority of medium and large airports have `iata_code` values but only around 12% of small airports have IATA codes. This is to be expected since only major airports would have an IATA code.
+* The `municipality` field refers to the city in which the port is located.
 
+### US City Demographics
+
+* Very few records (16) in the dataset contain nulls.
+* The dataset is relatively clean but we have aggregated values such as `Median Age` and `Average Household Size` that would be difficult to roll-up to a state-level. We may need to calculate total number of households and then divide by the total population. We could do the same for `Median Age` using it as a proxy for average age.
+* The city-wise data has been largely duplicated due to the presence of the population by race numbers. Except for `Count`, the data isn't segmented by race so it simply repeats for each race value. We'll need to split the race figures out and de-duplicate the remaining data.
+
+### Global Land Temperature by City
+
+* This data contains non-US records as well. These will need to be filtered out.
+* Unfortunately there's no field for US state, so we'll need to combine this with another source to be able to aggregate to a state-level if needed.
+* It's unlikely that our climate scientists need data all the way back from the 1700s. We've only got immigration and demographic data for 2016, so we could only extract temperatures observed in 2016. But the dataset only contains observations until 2013. Furthermore, to understand patterns over time we'll need multi-year data. We could perhaps limit the data to only those ports (or cities) or states included in the I-94 Immigration Data.
+
+# The Data Model
+
+## Conceptual Data Model
+
+TBD
+
+## Structure of the Data Pipeline
+
+TBD
