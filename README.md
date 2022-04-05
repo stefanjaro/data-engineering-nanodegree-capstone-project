@@ -4,7 +4,7 @@ This is a Capstone Project for the Udacity Data Engineering Nanodegree.
 
 # Project Summary
 
-The purpose of this project is to extract and transform US foreign immigration, demographic, and temperature data and load it into a data lake for use by a team of climate scientists who are interested in exploring the relationships between climate change, foreign travel, and the demographic composition of cities and states.
+The purpose of this project is to extract and transform US foreign immigration, demographic, and temperature data and load it into a relational database for use by a team of climate scientists who are interested in exploring the relationships between climate change, foreign air travel, and the demographic composition of cities and states.
 
 It's important to note that the goal of the project is to not run the analyses, but to provide the fundamental data required for them. 
 
@@ -14,27 +14,27 @@ It is entirely possible that the process documented below may need to be changed
 
 ## Scope
 
-The scope of this project is to provide a team of climate scientists access to analysis-ready data that would allow them to primarily determine if US cities and states that have seen greater changes in temperature over the years were subject to relatively more or less foreign citizen immigration.
+The scope of this project is to provide a team of climate scientists access to analysis-ready data that would allow them to primarily determine if US cities and states that have seen greater changes in temperature over the years were subject to relatively more or less foreign citizen immigration by air.
 
 Furthermore, our climate scientists would also like to determine if there is a correlation between climate change and:
-* The types of transportation used
-* The broad reasons for immigration
+* The broad reasons for immigration (business, leisure)
 * The demographics of a city and/or state
-* The demographics of the travellers (resident country, gender, and age)
-* The airline used by foreign travellers
-* The number and variety of transportation ports in a city and/or state 
+* The demographics of the travellers (resident country, gender, and age category)
+* The number and variety of airports in a city and/or state
+
+Our climate scientists have a very good knowledge of SQL and want a flexible and tightly-defined data model that they can easily run aggregations and joins on.
 
 ## Technology
 
-This project will make use of AWS S3 Buckets, AWS EMR, PySpark, and Airflow.
+This project will make use of an AWS S3 Bucket, AWS EMR, PySpark, AWS Redshift, and Airflow.
 
 ![architecture](./diagrams-and-visuals/Architecture.png)
 
 * The raw data that requires transformation will be held on an **AWS S3 Bucket**.
-* The analysis-ready datasets will be stored in a data lake held within another **AWS S3 Bucket**. 
-    * We're using a data lake instead of a database like Redshift to provide the climate scientists greater flexibility over how they query their data given the somewhat loose relationships between the various datasets.
-    * We're choosing AWS S3 due to its ease of use and low cost.
-* Since we're dealing with large datasets, an **AWS EMR Cluster** along with **PySpark** will be used to clean and aggregate the data before it is passed into the data lake. 
+* The analysis-ready datasets will be stored in a relational database held using **AWS Redshift**.
+    * We're using a relational database since we're going to model our data into a star schema with several fact tables. To explore relationships between various facts, the scientists will want to easily be able to aggregate the data in varying ways and join the aggregations as they see fit.
+    * While a data lake using S3 buckets would have been an inexpensive option, Redshift will allow the scientists to interact with the data using a language they're bound to be more familiar with - SQL - and scale their operations across a cluster of computers.
+* Since we're dealing with large datasets, an **AWS EMR Cluster** along with **PySpark** will be used to clean and aggregate the data before it is passed into the relational database. 
     * We're using AWS EMR since we'll need access to a distributed network of computers to crunch our data. We can also easily scale our EMR instance by adding more nodes if we need additional computing power. We can shut our EMR instance down each time we're done processing the data, so we're not spending money on idle resources.
     * We're using PySpark (or Python's wrapper for Spark) to distribute the job of cleaning and aggregating the data to each of the nodes in our distributed network of computers. Our data operations will be memory-intensive and PySpark makes more efficient use of memory compared to other big data technologies like Hadoop MapReduce.
 * Since we'll be running a host of operations on our data - reading, cleaning, transforming, writing, etc., - we'll need to use a tool to monitor the progress of each of these tasks. The tool we've chosen for this us **Airflow** which allows us to easily define the tasks within a data pipeline and monitor their execution.
@@ -64,7 +64,7 @@ The findings below contain both observations and ideas on how the data should be
 * The `arrdate` or arrival date is stored as an SAS numeric date. This means it indicates the number of days either before (negative values) or after (positive values) the 1st of January, 1960.
 * There are fields that are codified but have no reference data in the `I94_SAS_Labels_Description.SAS` file. The fields include (but are not limited to): `occup`, `entdepa`, `entdepd`, and `entdepu`.
 * Less than 0.01% of records in the sample dataset do not have an `i94mode` value. But more than 99% of records do not have an `occup` value, `insnum` value or an `entdepu` value. The nulls are unlikely missing values and more than likely have a meaning. Nevertheless, these aren't necessary for our project's analytics use cases.
-* However, 13.38% of records do not have a `gender` value. These will need to be filled in. Since we can't infer the gender, we could fill it in with an "O" for "Other".
+* However, 13.38% of records do not have a `gender` value. These will need to be filled in. Since we can't infer the gender, we could fill it in with a "U" for "Unknown".
 * The parquet file-based sample dataset provided alone was very large. We cannot clean and aggregate this data on a single machine.
 
 ### Airport Codes Data
@@ -90,7 +90,65 @@ The findings below contain both observations and ideas on how the data should be
 
 ## Conceptual Data Model
 
-TBD
+The data model will follow a Star Schema with 5 Fact Tables and 3 Dimension Tables:
+
+![data-model](./diagrams-and-visuals/DataModel.png)
+
+The **Immigration Facts** table is a fact table that consists of:
+* *city_id*: The unique identifier for a US city
+* *departing_country_id*: The unique identifier for the country of departure
+* *resident_country_id*: The unique identifier for the country of residence
+* *purpose_of_visit_id*: The unique identifier for the purpose of the visit (i.e., business, leisure, etc.)
+* *age_category_id*: The unique identifier for the age bracket the travellers belong to
+* *gender_id*: The unique identifier for the gender the travellers identify as
+* *arrival_month*: The month the travellers arrived to the US
+* *count_of_travellers*: The number of travellers that fall into each of the unique combinations of categories above
+
+The **Airport Facts** table is a fact table that consists of:
+* *city_id*: The unique identifier for a US city
+* *type_of_airport*: Whether an airport is small, medium, large, or otherwise
+* *number_of_airports*: The number of airports by type and city
+
+The **General Population Facts** table is a fact table that consists of:
+* *city_id*: The unique identifier for a US city
+* *total_population*: The total population of the city
+* *male_population*: The number of men in the city
+* *female_population*: The number of women in the city
+* *veteran_population*: The number of war veterans in the city
+* *foreign_population*: The number of foreign residents in the city
+* *median_age*: The median age of the city's population
+* *average_household_size*: The average size of the city's households
+
+The **Race Population Facts** table is a fact table that consists of:
+* *city_id*: The unique identifier for a US city
+* *race*: A specific ethnicity or race
+* *population*: The number of a specific ethnicity or race that resides within the city
+
+The **Temperature Facts** table is a fact table that consists of:
+* *city_id*: The unique identifier for a US city
+* *timestamp*: The date an average temperature was recorded
+* *average_temperature*: The average temperature recorded
+
+The **City Dim** table is a dimension table that consists of:
+* *city_id*: The unique identifier for a US city
+* *city_name*: The full name of a city
+* *state_code*: The 2-letter code for the state the city belongs to
+* *lattitude*: The locational lattitude of the city
+* *longitude*: The locational longitude of the city
+
+The **Country Dim** table is a dimension table that consists of:
+* *country_id*: The unique identifier for a country
+* *country_name*: The name of the country
+* *region*: The region of the world it belongs to
+* *global_region*: Whether it belongs to the global north or south
+
+The **Time Dim** table is a dimension table that consists of:
+* *timestamp*: The full timestamp containing the month, year, and day value
+* *day*: The day component of the timestamp
+* *month*: The month component of the timestamp
+* *year*: The year component of the timestamp
+* *day_of_week*: An indicator from 1 to 7 signifying the day of the week a timestamp falls into
+* *month_year*: A combination of the month component and year component
 
 ## Structure of the Data Pipeline
 
