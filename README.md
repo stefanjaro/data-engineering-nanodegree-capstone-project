@@ -76,6 +76,7 @@ The findings below contain both observations and ideas on how the data should be
 * Very few records (16) in the dataset contain nulls.
 * The dataset is relatively clean but we have aggregated values such as `Median Age` and `Average Household Size` that would be difficult to roll-up to a state-level. We may need to calculate total number of households and then divide by the total population. We could do the same for `Median Age` using it as a proxy for average age.
 * The city-wise data has been largely duplicated due to the presence of the population by race numbers. Except for `Count`, the data isn't segmented by race so it simply repeats for each race value. We'll need to split the race figures out and de-duplicate the remaining data before rolling it up to a state-level.
+* The table doesn't contain demographic information on every city in each state. As a result, our state-level aggregations will be understated.
 
 ### Global Land Temperature by City
 
@@ -107,24 +108,24 @@ The **fact_immigration** table is a fact table that consists of:
 * *pleasure_travellers*: The number of travellers that arrived for holiday or leisure purposes
 * *student_travellers*: The number of travellers that arrived for the prupose of study
 
-The **fact_transport_ports** table is a fact table that consists of:
+The **fact_ports** table is a fact table that consists of:
 * *state_id*: The two-letter identifier for a US state
 * *port_type*: The type of air transportion port (e.g. small/medium/large airport, balloonport, etc.)
 * *num_of_ports*: The number of air transportation port by type and state
 
 The **fact_demographics** table is a fact table that consists of:
 * *state_id*: The two-letter identifier for a US state
-* *total_pop*: The total population of the state
-* *male_pop*: The number of men in the state
-* *female_pop*: The number of women in the state
-* *veteran_pop*: The number of war veterans in the state
-* *foreign_pop*: The number of foreign residents in the state
-* *hispanic_pop*: The number of Hispanics or Latin Americans in the state
-* *white_pop*: The number of Caucasians in the state
-* *asian_pop*: The number of Asians in the state
-* *black_pop*: The number of black or African Americans in the state
-* *native_pop*: The number of American Indians or Native Alaskans in the state
-* *avg_hh_size*: The average size of the city's households
+* *total_pop*: The total population of the state (for major cities only)
+* *male_pop*: The number of men in the state (for major cities only)
+* *female_pop*: The number of women in the state (for major cities only)
+* *veteran_pop*: The number of war veterans in the state (for major cities only)
+* *foreign_pop*: The number of foreign residents in the state (for major cities only)
+* *hispanic_pop*: The number of Hispanics or Latin Americans in the state (for major cities only)
+* *white_pop*: The number of Caucasians in the state (for major cities only)
+* *asian_pop*: The number of Asians in the state (for major cities only)
+* *black_pop*: The number of black or African Americans in the state (for major cities only)
+* *native_pop*: The number of American Indians or Native Alaskans in the state (for major cities only)
+* *avg_hh_size*: The average size of the state's households (for major cities only)
 
 The **fact_temperature** table is a fact table that consists of:
 * *state_id*: The two-letter identifier for a US state
