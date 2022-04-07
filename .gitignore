@@ -128,7 +128,7 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
-# Data files
+# Data files and sensitive files
 *.csv
 *.parquet
 *.zip
@@ -136,3 +136,4 @@ dmypy.json
 *.crc
 _SUCCESS
 *.sas7bdat
+*.cfg

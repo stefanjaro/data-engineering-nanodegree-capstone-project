@@ -1,0 +1,8 @@
+https://www.startdataengineering.com/post/how-to-submit-spark-jobs-to-emr-cluster-from-airflow/
+https://blog.insightdatascience.com/scheduling-spark-jobs-with-airflow-4c66f3144660
+https://meta.wikimedia.org/wiki/List_of_countries_by_regional_classification
+https://stackoverflow.com/questions/51949414/read-sas-sas7bdat-data-with-spark
+
+/usr/bin/spark-submit --master yarn --packages "saurfang:spark-sas7bdat:3.0.0-s_2.12" immigration-data-preprocessing.py
+
+
