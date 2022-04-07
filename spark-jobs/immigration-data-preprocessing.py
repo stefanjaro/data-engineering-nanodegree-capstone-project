@@ -196,14 +196,18 @@ def preprocessing_main():
     """
     The main function that executes the Spark job that preprocessing the immigration data
     """
-    # hardcoded variables
-    s3_link_prefix = "s3://dendcapstoneproject/"
-    file_prefix = "raw_data/18-83510-I94-Data-2016/i94"
-    mode_labels_fp = "s3://dendcapstoneproject/raw_data/i94mode_labels.csv"
-    port_labels_fp = "s3://dendcapstoneproject/raw_data/i94port_labels.csv"
-    visa_labels_fp = "s3://dendcapstoneproject/raw_data/i94visa_labels.csv"
-    cit_labels_fp = "s3://dendcapstoneproject/raw_data/i94cit_labels.csv"
-    preprocessed_output_fp = "s3://dendcapstoneproject/preprocessed_files/"
+    # get file locations
+    from shared_spark_vars import (
+        s3_link_prefix,
+        file_prefix,
+        mode_labels_fp,
+        port_labels_fp,
+        visa_labels_fp,
+        cit_labels_fp,
+        preprocessed_fp as preprocessed_output_fp
+    )
+
+    # cols required for fact and dimension tables
     cols_required = [
         "i94cit", "i94port", "arrdate",
         "i94mode", "i94visa", "i94bir", "gender"

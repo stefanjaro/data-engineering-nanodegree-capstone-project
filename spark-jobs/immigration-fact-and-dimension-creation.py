@@ -163,9 +163,11 @@ def fact_and_dimension_creation_main():
     The main function that runs the Spark job
     to create the fact and dimension tables off the immigration data
     """
-    # hardcoded variables
-    preprocessed_file_path = "s3://dendcapstoneproject/preprocessed_files/immigration_data/"
-    output_file_path = "s3://dendcapstoneproject/output_files/"
+    # get file locations
+    from shared_spark_vars import (
+        preprocessed_fp as preprocessed_file_path,
+        output_fp as output_file_path
+    )
 
     # run the spark job
     spark = initialize_spark()
