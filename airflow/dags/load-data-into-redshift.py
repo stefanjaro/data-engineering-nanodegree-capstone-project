@@ -19,7 +19,6 @@ s3_bucket = "dendcapstoneproject"
 db_schema = "public"
 copy_options = ["FORMAT AS CSV", "IGNOREHEADER 1", "DELIMITER ','"]
 
-
 # initialize dag
 dag = DAG(
     "load-data-into-redshift",
@@ -231,7 +230,7 @@ def unique_values_check(*args, **kwargs):
 
         if total_count[0][0] != distinct_count[0][0]:
             raise ValueError(
-                f"Data quality check failed. Total count is {total_count[0][0]}. Distinct count is {distinct_count[0][0]}."
+                f"Check failed for {table}. Total count is {total_count[0][0]}. Distinct count is {distinct_count[0][0]}."
             )
         
         logging.info(
