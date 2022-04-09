@@ -211,7 +211,8 @@ def preprocess_immigration_data(imm, preprocessed_output_fp):
         F.lower(F.concat(
             imm["genderclean"], 
             F.substring(imm["i94cit_continent"], 1, 3), 
-            F.substring(imm["agecategory"], 1, 2)
+            F.substring(imm["agecategory"], 1, 2),
+            F.substring(imm["i94cit_global_region"], 1, 1)
             )
         )
     )

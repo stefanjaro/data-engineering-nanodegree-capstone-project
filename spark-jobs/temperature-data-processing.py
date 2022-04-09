@@ -174,7 +174,11 @@ def create_temp_fact(temp, output_fp):
         "median_temp"
     )
 
-    fact_temp.write.partitionBy("year").csv(output_fp + "fact_temperature/", "append", header=True)
+    # duplicate the year column since when partitioned, it'll be dropped
+    # and redshift won't be able to read it from the partitioned folder names
+    fact_temp = fact_temp.withColumn("year_", fact_temp["year"])
+
+    fact_temp.write.partitionBy("year_").csv(output_fp + "fact_temperature/", "append", header=True)
 
 def main():
     """

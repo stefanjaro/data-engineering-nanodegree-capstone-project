@@ -83,8 +83,10 @@ def create_immigration_fact(spark, preprocessed_file_path, output_file_path):
     fact_imm = fact_imm.withColumn("record_id", F.monotonically_increasing_id())
 
     # add a month and year for partitioning
-    fact_imm = fact_imm.withColumn("month", F.month(fact_imm["arrival_date"]))
-    fact_imm = fact_imm.withColumn("year", F.year(fact_imm["arrival_date"]))
+    # these columns will be dropped in the csv part files,
+    # and hence cannot be read by redshift (we don't need them when loading this table anyway)
+    fact_imm = fact_imm.withColumn("month_", F.month(fact_imm["arrival_date"]))
+    fact_imm = fact_imm.withColumn("year_", F.year(fact_imm["arrival_date"]))
 
     # rearrange columns
     fact_imm = fact_imm.select(
@@ -99,12 +101,12 @@ def create_immigration_fact(spark, preprocessed_file_path, output_file_path):
         "business_travellers",
         "pleasure_travellers",
         "student_travellers",
-        "month",
-        "year"
+        "month_",
+        "year_"
     )
 
     # write to csv files
-    fact_imm.write.partitionBy("month", "year").csv(
+    fact_imm.write.partitionBy("month_", "year_").csv(
         output_file_path + "fact_immigration/", "append", header=True
         )
 
@@ -193,8 +195,13 @@ def create_time_dimension(spark, preprocessed_file_path, output_file_path):
         "day_of_week"
     )
 
+    # duplicate the month and year column since when partitioned, it'll be dropped
+    # and redshift won't be able to read it from the partitioned folder names
+    dim_time = dim_time.withColumn("month_", dim_time["month"])
+    dim_time = dim_time.withColumn("year_", dim_time["year"])
+
     # write to csv files
-    dim_time.write.partitionBy("month", "year").csv(
+    dim_time.write.partitionBy("month_", "year_").csv(
         output_file_path + "dim_time/", "append", header=True
         )
 
