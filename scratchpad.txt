@@ -5,4 +5,24 @@ https://stackoverflow.com/questions/51949414/read-sas-sas7bdat-data-with-spark
 
 /usr/bin/spark-submit --master yarn --packages "saurfang:spark-sas7bdat:3.0.0-s_2.12" immigration-data-preprocessing.py
 
+/usr/bin/spark-submit --master yarn --packages "saurfang:spark-sas7bdat:3.0.0-s_2.12" --py-files s3://dendcapstoneproject/scripts/shared_spark_vars.py s3://dendcapstoneproject/scripts/immigration-data-preprocessing.py
 
+https://docs.aws.amazon.com/emr/latest/ReleaseGuide/emr-commandrunner.html
+
+# installing airflow
+export AIRFLOW_HOME=~/airflow
+pip install "apache-airflow==2.2.5" --constraint "https://raw.githubusercontent.com/apache/airflow/constraints-2.2.5/constraints-3.9.txt"
+PATH=$PATH:~/.local/bin
+pip install 'apache-airflow-providers-postgres'
+pip install 'apache-airflow-providers-amazon'
+airflow db init
+airflow users create \
+--username admin \
+--firstname stefan \
+--lastname jaro \
+--role Admin \
+--email XXX@XXX.com
+airflow webserver --port 7777 # in one terminals
+airflow scheduler # seperate terminal
+
+https://stackoverflow.com/questions/59895/how-can-i-get-the-source-directory-of-a-bash-script-from-within-the-script-itsel

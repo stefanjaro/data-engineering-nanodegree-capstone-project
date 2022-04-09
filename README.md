@@ -126,6 +126,7 @@ The **fact_demographics** table is a fact table that consists of:
 * *black_pop*: The number of black or African Americans in the state (for major cities only)
 * *native_pop*: The number of American Indians or Native Alaskans in the state (for major cities only)
 * *avg_hh_size*: The average size of the state's households (for major cities only)
+* *total_hh*: The number of households in a state (for major cities only)
 
 The **fact_temperature** table is a fact table that consists of:
 * *state_id*: The two-letter identifier for a US state

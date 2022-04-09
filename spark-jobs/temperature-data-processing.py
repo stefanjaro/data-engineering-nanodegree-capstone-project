@@ -68,8 +68,8 @@ def map_state_id(spark, temp, demo_lookup_fp, port_lookup_fp):
     """
 
     # import files needed for mapping state codes
-    state_city_lookup_demo = spark.read.parquet(demo_lookup_fp)
-    state_city_lookup_port = spark.read.parquet(port_lookup_fp)
+    state_city_lookup_demo = spark.read.csv(demo_lookup_fp, header=True)
+    state_city_lookup_port = spark.read.csv(port_lookup_fp, header=True)
 
     # clean up the files before appending them together
     state_city_lookup_demo = state_city_lookup_demo.select("state_id", "City")
@@ -158,7 +158,23 @@ def create_temp_fact(temp, output_fp):
         how="left"
     )
 
-    fact_temp.write.partitionBy("year").parquet(output_fp + "fact_temperature/", "append")
+    # add a record id column
+    fact_temp = fact_temp.withColumn("record_id", F.monotonically_increasing_id())
+
+    # rearrange columns
+    fact_temp = fact_temp.select(
+        "record_id",
+        "state_id",
+        "year",
+        "observation_count",
+        "num_of_cities",
+        "min_temp",
+        "max_temp",
+        "avg_temp",
+        "median_temp"
+    )
+
+    fact_temp.write.partitionBy("year").csv(output_fp + "fact_temperature/", "append", header=True)
 
 def main():
     """

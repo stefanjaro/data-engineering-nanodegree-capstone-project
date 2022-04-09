@@ -70,7 +70,7 @@ def create_city_state_lookup(demo, preprocessed_fp):
     state_city_lookup = state_city_lookup.withColumnRenamed("State Code", "state_id")
 
     # write to folder
-    state_city_lookup.write.parquet(preprocessed_fp + "state_city_lookup_demo/", "append")
+    state_city_lookup.write.csv(preprocessed_fp + "state_city_lookup_demo/", "append", header=True)
 
 def create_state_dim(demo, output_fp):
     """
@@ -95,8 +95,14 @@ def create_state_dim(demo, output_fp):
     for k,v in state_dim_new_cols.items():
         state_dim = state_dim.withColumnRenamed(k,v)
 
+    # rearrange columns
+    state_dim = state_dim.select(
+        "state_id",
+        "state_name"
+    )
+
     # write into folder
-    state_dim.write.parquet(output_fp + "dim_state/", "append")
+    state_dim.write.csv(output_fp + "dim_state/", "append", header=True)
 
 def create_fact_demographics(demo, output_fp):
     """
@@ -157,8 +163,25 @@ def create_fact_demographics(demo, output_fp):
     # calculate average household size at a state level
     fact_demo = fact_demo.withColumn("avg_hh_size", fact_demo["total_pop"] / fact_demo["total_hh"])
 
+    # rearrange columns
+    fact_demo = fact_demo.select(
+        "state_id",
+        "total_pop",
+        "male_pop",
+        "female_pop",
+        "veteran_pop",
+        "foreign_pop",
+        "hispanic_pop",
+        "white_pop",
+        "asian_pop",
+        "black_pop",
+        "native_pop",
+        "avg_hh_size",
+        "total_hh"
+    )
+
     # write to output folder
-    fact_demo.write.parquet(output_fp + "fact_demographics/", "append")
+    fact_demo.write.csv(output_fp + "fact_demographics/", "append", header=True)
 
 def main():
     """

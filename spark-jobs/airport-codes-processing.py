@@ -69,7 +69,15 @@ def create_ports_fact(ports, output_fp):
     for k,v in fact_trans_col_names.items():
         fact_trans_ports = fact_trans_ports.withColumnRenamed(k, v)
 
-    fact_trans_ports.write.parquet(output_fp + "fact_ports/", "append")
+    # rearrange columns
+    fact_trans_ports = fact_trans_ports.select(
+        "record_id",
+        "state_id",
+        "port_type",
+        "num_of_ports"
+    )
+
+    fact_trans_ports.write.csv(output_fp + "fact_ports/", "append", header=True)
 
 def create_state_city_lookup(ports, preprocessed_fp):
     """
@@ -79,7 +87,7 @@ def create_state_city_lookup(ports, preprocessed_fp):
     state_city_lookup = ports.select("state_id", "municipality").dropDuplicates()
 
     # write to proprocessed folder
-    state_city_lookup.write.parquet(preprocessed_fp + "state_city_lookup_ports/", "append")
+    state_city_lookup.write.csv(preprocessed_fp + "state_city_lookup_ports/", "append", header=True)
 
 def main():
     """

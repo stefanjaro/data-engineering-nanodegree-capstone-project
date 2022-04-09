@@ -6,7 +6,7 @@
 # import libraries
 import datetime
 import configparser
-import boto3
+# import boto3
 from pyspark.sql import SparkSession
 from pyspark.sql import functions as F
 from pyspark.sql.types import DateType, StringType
@@ -25,44 +25,74 @@ def initialize_spark():
 
     return spark
 
-def get_file_list_from_s3(s3_link_prefix, file_prefix):
+# def get_file_list_from_s3(s3_link_prefix, file_prefix):
+#     """
+#     Connects to s3, gets the list of files with the prefix stated and
+#     dynamically generates the list of SAS files that to be read in by spark
+
+#     Params
+#     ------
+#     s3_link_prefix: str
+#         The link to the bucket
+#     file_prefix: str
+#         The prefix of the files we're looking for
+#     """
+#     # get our aws keys from the locally stored config file
+#     config = configparser.ConfigParser()
+#     config.read('dl.cfg')
+#     AWS_ACCESS_KEY_ID = config['DEFAULT']['AWS_ACCESS_KEY_ID']
+#     AWS_SECRET_KEY_ID = config['DEFAULT']['AWS_SECRET_ACCESS_KEY']
+
+#     # create a boto3 s3 instance
+#     s3 = boto3.resource(
+#         "s3",
+#         region_name="us-west-2",
+#         aws_access_key_id=AWS_ACCESS_KEY_ID,
+#         aws_secret_access_key=AWS_SECRET_KEY_ID
+#     )
+
+#     # connect to our bucket
+#     bucket = s3.Bucket(s3_link_prefix.split("/")[-2].strip())
+
+#     # get a list of all objects with the file_prefix
+#     all_objects = [obj for obj in bucket.objects.filter(Prefix=file_prefix)]
+
+#     # create the list of files to be read
+#     list_of_files = []
+#     for obj in all_objects:
+#         list_of_files.append(s3_link_prefix + obj.key)
+
+#     return list_of_files
+
+def generate_sas_file_list(s3_link_prefix):
     """
-    Connects to s3, gets the list of files with the prefix stated and
-    dynamically generates the list of SAS files that to be read in by spark
+    Generates the list of SAS files that need to be read
 
     Params
     ------
     s3_link_prefix: str
-        The link to the bucket
-    file_prefix: str
-        The prefix of the files we're looking for
+        The prefix of the s3 bucket
     """
-    # get our aws keys from the locally stored config file
-    config = configparser.ConfigParser()
-    config.read('dl.cfg')
-    AWS_ACCESS_KEY_ID = config['DEFAULT']['AWS_ACCESS_KEY_ID']
-    AWS_SECRET_KEY_ID = config['DEFAULT']['AWS_SECRET_ACCESS_KEY']
+    # the list of sas files in the raw data folder
+    sas_files = [
+        "raw_data/18-83510-I94-Data-2016/i94_jan16_sub.sas7bdat",
+        "raw_data/18-83510-I94-Data-2016/i94_feb16_sub.sas7bdat",
+        "raw_data/18-83510-I94-Data-2016/i94_mar16_sub.sas7bdat",
+        "raw_data/18-83510-I94-Data-2016/i94_apr16_sub.sas7bdat",
+        "raw_data/18-83510-I94-Data-2016/i94_may16_sub.sas7bdat",
+        "raw_data/18-83510-I94-Data-2016/i94_jun16_sub.sas7bdat",
+        "raw_data/18-83510-I94-Data-2016/i94_jul16_sub.sas7bdat",
+        "raw_data/18-83510-I94-Data-2016/i94_aug16_sub.sas7bdat",
+        "raw_data/18-83510-I94-Data-2016/i94_sep16_sub.sas7bdat",
+        "raw_data/18-83510-I94-Data-2016/i94_oct16_sub.sas7bdat",
+        "raw_data/18-83510-I94-Data-2016/i94_nov16_sub.sas7bdat",
+        "raw_data/18-83510-I94-Data-2016/i94_dec16_sub.sas7bdat"
+    ]
 
-    # create a boto3 s3 instance
-    s3 = boto3.resource(
-        "s3",
-        region_name="us-west-2",
-        aws_access_key_id=AWS_ACCESS_KEY_ID,
-        aws_secret_access_key=AWS_SECRET_KEY_ID
-    )
+    # add the prefix
+    imm_fps = [s3_link_prefix + x for x in sas_files]
 
-    # connect to our bucket
-    bucket = s3.Bucket(s3_link_prefix.split("/")[-2].strip())
-
-    # get a list of all objects with the file_prefix
-    all_objects = [obj for obj in bucket.objects.filter(Prefix=file_prefix)]
-
-    # create the list of files to be read
-    list_of_files = []
-    for obj in all_objects:
-        list_of_files.append(s3_link_prefix + obj.key)
-
-    return list_of_files
+    return imm_fps
 
 def import_immigration_and_add_labels(spark, imm_fp, mode_labels_fp, port_labels_fp, 
                                       visa_labels_fp, cit_labels_fp, cols_required):
@@ -199,7 +229,7 @@ def preprocessing_main():
     # get file locations
     from shared_spark_vars import (
         s3_link_prefix,
-        file_prefix,
+        # file_prefix,
         mode_labels_fp,
         port_labels_fp,
         visa_labels_fp,
@@ -214,7 +244,8 @@ def preprocessing_main():
     ]
 
     spark = initialize_spark()
-    imm_fps = get_file_list_from_s3(s3_link_prefix, file_prefix)
+    # imm_fps = get_file_list_from_s3(s3_link_prefix, file_prefix)
+    imm_fps = generate_sas_file_list(s3_link_prefix)
 
     for imm_fp in imm_fps:
         imm = import_immigration_and_add_labels(

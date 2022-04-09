@@ -129,7 +129,10 @@ dmypy.json
 .pyre/
 
 # Data files and sensitive files
-*.csv
+airport-codes_csv.csv
+GlobalLandTemperaturesByCity.csv
+immigration_data_sample.csv
+us-cities-demographics.csv
 *.parquet
 *.zip
 *.SAS
@@ -137,3 +140,4 @@ dmypy.json
 _SUCCESS
 *.sas7bdat
 *.cfg
+*.sh

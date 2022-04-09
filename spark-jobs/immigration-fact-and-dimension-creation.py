@@ -28,7 +28,7 @@ def create_immigration_fact(spark, preprocessed_file_path, output_file_path):
         The location to store the final fact/dimension data
     """
     # read in the immigration data
-    imm = spark.read.parquet(preprocessed_file_path)
+    imm = spark.read.parquet(preprocessed_file_path + "immigration_data/")
 
     # create the skeleton table that will become fact_immigration table
     fact_imm = imm.select("i94port_state", "profile_id", "arrdateclean").dropDuplicates()
@@ -76,8 +76,8 @@ def create_immigration_fact(spark, preprocessed_file_path, output_file_path):
     for k,v in fact_imm_col_names.items():
         fact_imm = fact_imm.withColumnRenamed(k, v)
 
-    # fill nulls with 0
-    fact_imm = fact_imm.fillna(0)
+    # # fill nulls with 0
+    # fact_imm = fact_imm.fillna(0)
 
     # add a record id column
     fact_imm = fact_imm.withColumn("record_id", F.monotonically_increasing_id())
@@ -86,8 +86,27 @@ def create_immigration_fact(spark, preprocessed_file_path, output_file_path):
     fact_imm = fact_imm.withColumn("month", F.month(fact_imm["arrival_date"]))
     fact_imm = fact_imm.withColumn("year", F.year(fact_imm["arrival_date"]))
 
-    # write to parquet files
-    fact_imm.write.partitionBy("month", "year").parquet(output_file_path + "fact_immigration/", "append")
+    # rearrange columns
+    fact_imm = fact_imm.select(
+        "record_id",
+        "state_id",
+        "arrival_date",
+        "profile_id",
+        "all_travellers",
+        "land_travellers",
+        "sea_travellers",
+        "air_travellers",
+        "business_travellers",
+        "pleasure_travellers",
+        "student_travellers",
+        "month",
+        "year"
+    )
+
+    # write to csv files
+    fact_imm.write.partitionBy("month", "year").csv(
+        output_file_path + "fact_immigration/", "append", header=True
+        )
 
 def create_traveller_profile_dimension(spark, preprocessed_file_path, output_file_path):
     """
@@ -104,7 +123,7 @@ def create_traveller_profile_dimension(spark, preprocessed_file_path, output_fil
     """
 
     # read in the immigration data
-    imm = spark.read.parquet(preprocessed_file_path)
+    imm = spark.read.parquet(preprocessed_file_path + "immigration_data/")
 
     # create the traveller profile dimension table
     dim_traveller_profile = imm.select(
@@ -123,8 +142,17 @@ def create_traveller_profile_dimension(spark, preprocessed_file_path, output_fil
     for k,v in profile_col_names.items():
         dim_traveller_profile = dim_traveller_profile.withColumnRenamed(k, v)
 
+    # rearrange column
+    dim_traveller_profile = dim_traveller_profile.select(
+        "profile_id",
+        "gender",
+        "age_category",
+        "citizen_region",
+        "citizen_global_region"
+    )
+
     # write to output file path
-    dim_traveller_profile.write.parquet(output_file_path + "dim_traveller_profile/", "append")
+    dim_traveller_profile.write.csv(output_file_path + "dim_traveller_profile/", "append", header=True)
 
 def create_time_dimension(spark, preprocessed_file_path, output_file_path):
     """
@@ -140,7 +168,7 @@ def create_time_dimension(spark, preprocessed_file_path, output_file_path):
         The location to store the final fact/dimension data
     """
     # read in the immigration data
-    imm = spark.read.parquet(preprocessed_file_path)
+    imm = spark.read.parquet(preprocessed_file_path + "immigration_data/")
 
     # create the time dimension table skeleton
     dim_time = imm.select("arrdateclean").drop_duplicates()
@@ -155,8 +183,20 @@ def create_time_dimension(spark, preprocessed_file_path, output_file_path):
     # rename the arrdateclean column
     dim_time = dim_time.withColumnRenamed("arrdateclean", "timestamp")
 
-    # write to parquet files
-    dim_time.write.partitionBy("month", "year").parquet(output_file_path + "dim_time/", "append")
+    # rearrange columns
+    dim_time = dim_time.select(
+        "timestamp",
+        "day",
+        "month",
+        "year",
+        "month_year",
+        "day_of_week"
+    )
+
+    # write to csv files
+    dim_time.write.partitionBy("month", "year").csv(
+        output_file_path + "dim_time/", "append", header=True
+        )
 
 def fact_and_dimension_creation_main():
     """
