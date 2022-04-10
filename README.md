@@ -50,7 +50,7 @@ We have 4 datasets provided by Udacity:
 
 # Data Exploration
 
-An iPython Notebook was used to explore the data (or sample data) and can be found in the following repository location: `/supplementary-notebooks/data-exploration.ipynb`.
+An iPython Notebook was used to explore the data (or sample data) and can be found in the following repository location: `/supplementary-files/notebooks/data-exploration.ipynb`.
 
 The findings below contain both observations and ideas on how the data should be cleaned or transformed.
 
@@ -332,11 +332,13 @@ Visit `localhost:7777`, login to Airflow and configure the following connections
 
 Apart from declared variable types in the DDL code that creates the relational tables on Redshift, the `check_for_records` and `check_for_uniques` tasks at the end of the second pipeline will ensure that the data has been loaded into Redshift in the appropriate manner.
 
+The pipelines can be run again if the raw datasets are ever updated. For example, if we obtain I-94 Immigration data from 2017 to 2021 or Temperature data for the years following 2013, the raw data files in the S3 `raw_data/` folder can be updated and both pipelines should be executed again in the same order.
+
 ### Running Queries
 
 Queries can be run against the data using either Python or the Query Editor that Amazon provides for Redshift.
 
-For example, if our climate scientists wanted to look at the number of foreign travellers to each state as a percentage of the total number of travellers and compare it against the number of foreign residents in each state as a percentage of the total number of foreign residents, they could run the following SQL code:
+For example, if our climate scientists, having already identified states with large variances in their average temperatures, wanted to look at the number of foreign travellers to each state as a percentage of the total number of travellers and compare it against the number of foreign residents in each state as a percentage of the total number of foreign residents, they could run the following SQL code:
 
 ```sql
 WITH t1 AS (
@@ -381,3 +383,21 @@ And this would return the following results (this table has been truncated):
 |IL      |1577276               |941735           |4.5094              |3.980           |
 |AZ      |155407                |682313           |0.4443              |2.884           |
 
+# Changes in Approach Based on Various Scenarios
+
+**What if the data is increased by 100x?**
+
+* We could scale the EMR cluster outwards by running our data transformations and aggregations on a greater number of worker nodes, collectively handling a larger subset of the data at a time.
+* We could consider scaling our EMR cluster upwards as well by perhaps creating a cluster with worker nodes that are optimized for memory-intensive tasks.
+* While Distribution Keys have already been assigned in the DDL for each of the Redshift tables, when we're dealing with larger datasets, we may want to experiment with how the data is distributed and sorted across the Redshift cluster based on the exact queries our climate scientists want to run frequently. This way, we can ensure sure the entire cluster is being used effectively so any complex queries are run efficiently.
+
+**What if the pipelines need to be run on a daily basis by 7am?**
+
+* Since we're already using Airflow, we can simply adjust the `schedule_interval` of the DAGs.
+* We can either combine the dags or configure them to run one after the other (for example, setting the second to run 20 minutes after the first, assuming the first doesn't require more than 20 minutes to run).
+* We could also add an `sla` to the DAG and add an `email_on_failure` setting so we're immediately informed if the pipelines haven't run by 7am.
+
+**What if the database needed to be accessed by 100+ people?**
+
+* According to [Amazon](https://docs.aws.amazon.com/redshift/latest/mgmt/amazon-redshift-limits.html), Redshift allows for 500 concurrent connections, so our current implementation will allow for the database to be accessed by 100+ people.
+* However, with 100+ people querying the data at the same time, we'll probably need to consider adding both more nodes and more powerful nodes to our cluster, especially if the majority of their queries tend to contain a lot of joins and aggregations.
