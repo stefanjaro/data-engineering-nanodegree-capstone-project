@@ -19,6 +19,7 @@ s3_bucket = "dendcapstoneproject"
 db_schema = "public"
 copy_options = ["FORMAT AS CSV", "IGNOREHEADER 1", "DELIMITER ','"]
 
+
 # initialize dag
 dag = DAG(
     "load-data-into-redshift",
@@ -143,12 +144,12 @@ copy_dim_datetime = S3ToRedshiftOperator(
     copy_options=copy_options
 )
 
-# copy dim traveller profile to a staging table (we need to deduplicate the data)
-copy_staging_dim_traveller_profile = S3ToRedshiftOperator(
+# copy dim traveller profile
+copy_dim_traveller_profile = S3ToRedshiftOperator(
     task_id="copy_dim_traveller_profile",
     dag=dag,
     schema=db_schema,
-    table="staging_dim_traveller_profile",
+    table="dim_traveller_profile",
     column_list=[
         "profile_id", "gender", "age_category",
         "citizen_region", "citizen_global_region"
@@ -158,32 +159,6 @@ copy_staging_dim_traveller_profile = S3ToRedshiftOperator(
     redshift_conn_id="aws_redshift",
     aws_conn_id="aws_credentials",
     copy_options=copy_options
-)
-
-#######################################
-# DEDUPE OPERATION ON TRAVELLER PROFILE
-#######################################
-
-# dedupe
-traveller_profile_dedupe = PostgresOperator(
-    task_id="traveller_profile_dedupe",
-    dag=dag,
-    postgres_conn_id="pg_redshift",
-    sql="""
-        INSERT INTO dim_traveller_profile
-            SELECT DISTINCT *
-            FROM staging_dim_traveller_profile;
-    """
-)
-
-# drop staging table
-drop_staging_table = PostgresOperator(
-    task_id="drop_staging_table",
-    dag=dag,
-    postgres_conn_id="pg_redshift",
-    sql="""
-        DROP TABLE IF EXISTS staging_dim_traveller_profile;
-    """
 )
 
 #######################
@@ -273,13 +248,5 @@ check_for_uniques = PythonOperator(
 
 create_tables_on_redshift >> [
     copy_fact_immigration, copy_fact_demographics, copy_fact_ports, copy_fact_temperature,
-    copy_dim_state, copy_dim_datetime, copy_staging_dim_traveller_profile
-]
-
-copy_staging_dim_traveller_profile >> traveller_profile_dedupe >> drop_staging_table
-
-[
-    copy_fact_immigration, copy_fact_demographics, copy_fact_ports, 
-    copy_fact_temperature, copy_dim_state, copy_dim_datetime, drop_staging_table] >> check_for_records
-
-check_for_records >> check_for_uniques
+    copy_dim_state, copy_dim_datetime, copy_dim_traveller_profile
+] >> check_for_records >> check_for_uniques

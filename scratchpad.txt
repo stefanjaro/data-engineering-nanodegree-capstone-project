@@ -26,3 +26,33 @@ airflow webserver --port 7777 # in one terminals
 airflow scheduler # seperate terminal
 
 https://stackoverflow.com/questions/59895/how-can-i-get-the-source-directory-of-a-bash-script-from-within-the-script-itsel
+
+WITH t1 AS (
+  	SELECT state_id, SUM(all_travellers) AS state_total_travellers
+  	FROM fact_immigration
+  	GROUP BY 1
+),
+	t2 AS (
+  	SELECT state_id, foreign_pop AS state_foreign_pop
+ 	FROM fact_demographics
+), 
+	t3 AS (
+  	SELECT state_id, SUM(state_total_travellers) OVER () AS country_total_travellers
+    FROM t1
+),
+	t4 AS (
+    SELECT state_id, SUM(foreign_pop) OVER () country_total_foreign_pop
+    FROM fact_demographics
+)
+
+SELECT t1.state_id,
+	t1.state_total_travellers,
+    t2.state_foreign_pop,
+	ROUND((CAST(t1.state_total_travellers AS DECIMAL) / t3.country_total_travellers) * 100, 4) AS state_traveller_perc,
+    ROUND((CAST(t2.state_foreign_pop AS DECIMAL) / t4.country_total_foreign_pop) * 100, 3) AS foreign_pop_perc
+FROM t1
+JOIN t2 ON t1.state_id = t2.state_id
+JOIN t3 on t1.state_id = t3.state_id
+JOIN t4 on t1.state_id = t4.state_id
+WHERE t1.state_total_travellers IS NOT NULL AND t2.state_foreign_pop IS NOT NULL
+ORDER BY 3 DESC;

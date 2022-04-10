@@ -50,7 +50,7 @@ We have 4 datasets provided by Udacity:
 
 # Data Exploration
 
-An iPython Notebook was used to explore the data (or sample data) and can be found in the following repository location: `/supplementary-scripts/data-exploration.ipynb`.
+An iPython Notebook was used to explore the data (or sample data) and can be found in the following repository location: `/supplementary-notebooks/data-exploration.ipynb`.
 
 The findings below contain both observations and ideas on how the data should be cleaned or transformed.
 
@@ -157,6 +157,59 @@ The **dim_traveller_profile** table is a dimension table that consists of:
 * *citizen_region*: The particular continent in the world the traveller is a citizen of (i.e., Asia, Africa, Oceania, etc.)
 * *citizen_global_region*: Whether the traveller belongs to the global north or the global south
 
-## Structure of the Data Pipeline
+## Structure of the Data Pipelines
 
-TBD
+There'll be two pipelines:
+* The `prepare-data-for-redshift` pipeline will preprocess the raw data (reading it in from S3), transform it into the fact and dimension tables outlined above, and save them `.csv` files on S3.
+* The `load-data-into-redshift` pipeline will create a schema on Redshift, load the fact and dimension tables (from S3) into it, and perform checks for completeness and uniqueness.
+
+### The `prepare-data-for-redshift` Pipeline
+
+![prepare-data-dag](./diagrams-and-visuals/prepare-data-for-redshift-dag.png)
+
+This pipeline will utilize Airflow to automatically spin up an EMR cluster, add the following Spark jobs (detailed below) as steps, before terminating the cluster. This will ensure we don't overspend on big data processing.
+
+* The `immigration-data-preprocessing.py` script will perform the following functions:
+    * Generate the list of `.sas7bdat` that contain the I-94 Immigration Data and need to be iterated across for the transformationss detailed below.
+    * Map the labels for the codified mode, port, visa, and citizenship columns using mapping files that were created using the reference data held on the `I94_SAS_Labels_Description.SAS` file.
+    * Preprocess the immigration data by removing irrelevant records, calculating the arrival date, standardizing the gender column, categorizing the ages of the travellers, creating a traveller profile ID (by concatenating sub-strings extracted from the gender, age category, region, and global region columns and labels), and adding month and year columns for partitioning.
+    * The preprocessed data will be stored in `.parquet` files on S3 to both minimize space and to be easily accessed by the next Spark job.
+
+* The `immigration-fact-and-dimension-creation.py` script will perform the following functions:
+    * Create the immigration fact table in line with the schema above by grouping by the port of entry, profile ID, and arrival date and pivoting by the transportation mode and purpose of visit. An ID column will be added using the `monotonically_increasing_id()` function. A month and a year column will be calculated for partitioning purposes.
+    * Create the traveller profile dimension table by simply selecting the distinct combinations of profile ID, gender, age category, region, and global region.
+    * Create the datetime dimension table by obtaining a unique list of arrival dates and extracting various date components from them. Create duplicate month and year columns for partitioning (since these are dropped when saved by Spark and unlike Spark, Redshift can't read them in from the partitioned folder structure).
+    * All of the above will be stored in `.csv` files on S3.
+
+* The `airport-codes-processing.py` script will perform the following functions:
+    * Process the data by filtering out non-US ports, extracting the state ID from the `iso_region` column, and dropping any records with non-standard state IDs.
+    * Prepare the ports fact table by getting a count of all records grouped by state ID and type of port. An ID column will be added using the `monotonically_increasing_id()` function.
+    * Prepare a state and city lookup table (the first of two) to be used to assign state IDs to the city names in the Temperature dataset.
+    * The tables will be stored as `.csv` files on S3.
+
+* The `demographic-data-processing.py` script will perform the following functions:
+    * Prepare a state and city lookup table (the second of two) to be used to assign state IDs to the city names in the Temperature dataset.
+    * Prepare the state dimension table by simply getting the distinct combinations of state ID (the 2-letter abbreviation of a state's name) and state name.
+    * Create the demographics fact table by splitting the race data out from the table before dropping duplicate city-wise records, calculating the total number of households by city, grouping much of the numerical data by state ID, and calculating average household size by state. The split out race data will be pivoted so it can be merged with the other data at a state ID level.
+    * The tables will be stored as `.csv` files on S3.
+
+* The `temperature-data-processing.py` script will perform the following functions:
+    * Preprocess the data by filtering out non-US records, combining the two state and city lookup tables (dropping duplicates), and mapping in the state IDs for each city.
+    * Create the temperature fact table by extracting the year from the date, calculating the number of cities and observations per state, and calculating yearly summary statistics (mean, median, minimum, and maximum) on the average temperature column for each state. An ID column will be added using the `monotonically_increasing_id()` function. A duplicate year column will be created for partitioning (since these are dropped when saved by Spark and unlike Spark, Redshift can't read them in from the partitioned folder structure).
+    * The table will be stored as as `.csv` files on S3.
+
+### The `load-data-into-redshift` Pipeline
+
+![load-data-dag](./diagrams-and-visuals/load-data-into-redshift-dag.png)
+
+This pipeline will require a Redshift cluster to have already been created. It will:
+
+* Run DDL code to create tables in line with the schema above. Any tables with the same names will be deleted to ensure the data is loaded in fresh.
+* Populate each table using its corresponding `.csv` files held on S3.
+* Run two types of data checks:
+    * The first data check will query every table to ensure it has a non-zero number of records.
+    * The second data check will query the primary keys of each table to ensure they are unique by calculating their number of distinct values and comparing it to the number of records in a table.
+
+# Running the Pipelines
+
+to-do
