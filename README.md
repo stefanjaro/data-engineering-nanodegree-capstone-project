@@ -34,7 +34,7 @@ This project will make use of an AWS S3 Bucket, AWS EMR, PySpark, AWS Redshift, 
 * Since we're dealing with large datasets, an **AWS EMR Cluster** along with **PySpark** will be used to clean and aggregate the data before it is passed into the relational database. 
     * We're using AWS EMR since we'll need access to a distributed network of computers to crunch our data. We can also easily scale our EMR instance by adding more nodes if we need additional computing power. We can shut our EMR instance down each time we're done processing the data, so we're not spending money on idle resources.
     * We're using PySpark (or Python's wrapper for Spark) to distribute the job of cleaning and aggregating the data to each of the nodes in our distributed network of computers. Our data operations will be memory-intensive and PySpark makes more efficient use of memory compared to other big data technologies like Hadoop MapReduce.
-* Since we'll be running a host of operations on our data - reading, cleaning, transforming, writing, etc., - we'll need to use a tool to monitor the progress of each of these tasks. The tool we've chosen for this us **Airflow** which allows us to easily define the tasks within a data pipeline and monitor their execution.
+* Since we'll be running a host of operations on our data - reading, cleaning, transforming, writing, etc., - we'll need to use a tool to monitor the progress of each of these tasks. The tool we've chosen for this is **Airflow** which allows us to easily define the tasks within a data pipeline and monitor their execution.
 
 ## Data
 
@@ -45,7 +45,7 @@ We have 4 datasets provided by Udacity:
     * Their travel details such as their mode of travel, their airline and flight number, their port of entry, their date of arrival, the final date before which they must depart the US, their arrival status, and their departure status.
     * Their visa details such as the type of their visa, their purpose in the country, and the department of state that issued their visa.
 * **US City Demographics**: This data was published by OpenDataSoft. It contains demographic information for 2,891 cities across the United States. The dataset is comprised of numerical information such as median age, gender-based population figures, average house-hold size, number of veterans, number of foreign-born residents, and a breakdown by race.
-* **Airport Codes**: This data was published on DataHub.io. It contains, primarily codified, information on 55,075 transportation ports (i.e., airports, seaports, heliports, and baloonports) around the world. In addition to the name of the port and codes for the countries, regions, municipalities, and continents it belongs to, it also contains its elevation level, location coordinates, and type of port.
+* **Airport Codes**: This data was published on DataHub.io. It contains, primarily codified, information on 55,075 transportation ports (i.e., airports, seaports, heliports, and balloonports) around the world. In addition to the name of the port and codes for the countries, regions, municipalities, and continents it belongs to, it also contains its elevation level, location coordinates, and type of port.
 * **Global Land Temperature by City**: This data was published by the non-profit, Berkeley Earth. It contains time-series data of the average temperature observed in 3,448 cities across 159 countries spanning the time period 1743 to 2013.
 
 # Data Exploration
@@ -74,7 +74,7 @@ The findings below contain both observations and ideas on how the data should be
 ### US City Demographics
 
 * Very few records (16) in the dataset contain nulls.
-* The dataset is relatively clean but we have aggregated values such as `Median Age` and `Average Household Size` that would be difficult to roll-up to a state-level. We may need to calculate total number of households and then divide by the total population. We could do the same for `Median Age` using it as a proxy for average age.
+* The dataset is relatively clean but we have aggregated values such as `Median Age` and `Average Household Size` that would be difficult to roll-up to a state-level. We may need to calculate the total number of households and then divide it by the total population. We could do the same for `Median Age` using it as a proxy for average age.
 * The city-wise data has been largely duplicated due to the presence of the population by race numbers. Except for `Count`, the data isn't segmented by race so it simply repeats for each race value. We'll need to split the race figures out and de-duplicate the remaining data before rolling it up to a state-level.
 * The table doesn't contain demographic information on every city in each state. As a result, our state-level aggregations will be understated.
 
@@ -94,23 +94,21 @@ The findings below contain both observations and ideas on how the data should be
 
 The data model will follow a Star Schema with 4 Fact Tables and 3 Dimension Tables. 
 
-This structure will make it highly convenient for the climate scientists to quickly pull the data points they require for their analyses with minimal joins and aggregations.
-
-Furthermore, at this level of aggregation, the data is bound to be of smaller size and thus queries are likely to return results much faster.
+This structure will make it highly convenient for the climate scientists to quickly pull the data points they require for their analyses with minimal joins and aggregations. Furthermore, at this level of aggregation, the data is bound to be of smaller size and thus queries are likely to return results much faster.
 
 ![data-model](./diagrams-and-visuals/DataModel.png)
 
 The **fact_immigration** table is a fact table that consists of:
 * *state_id*: The two-letter identifier for a US state
-* *arrival_date*: The date the travellers arrived to the US
+* *arrival_date*: The date the travellers arrived in the US
 * *profile_id*: The identifier for a unique combination of gender, age category, and citizenship region 
-* *all_travellers*: The number of travellers that arrived to the state (on a particular day and fitting a particular profile)
+* *all_travellers*: The number of travellers that arrived in the state (on a particular day and fitting a particular profile)
 * *land_travellers*: The number of travellers that arrived by land
 * *sea_travellers*: The number of travellers that arrived by sea
 * *air_travellers*: The number of travellers that arrived by air
 * *business_travellers*: The number of travellers that arrived for business purposes
 * *pleasure_travellers*: The number of travellers that arrived for holiday or leisure purposes
-* *student_travellers*: The number of travellers that arrived for the prupose of study
+* *student_travellers*: The number of travellers that arrived for the purpose of study
 
 The **fact_ports** table is a fact table that consists of:
 * *state_id*: The two-letter identifier for a US state
@@ -164,14 +162,14 @@ The **dim_traveller_profile** table is a dimension table that consists of:
 ## Structure of the Data Pipelines
 
 There'll be two pipelines:
-* The `prepare-data-for-redshift` pipeline will preprocess the raw data (reading it in from S3), transform it into the fact and dimension tables outlined above, and save them `.csv` files on S3.
+* The `prepare-data-for-redshift` pipeline will preprocess the raw data (reading it in from S3), transform it into the fact and dimension tables outlined above, and save them  as`.csv` files on S3.
 * The `load-data-into-redshift` pipeline will create a schema on Redshift, load the fact and dimension tables (from S3) into it, and perform checks for completeness and uniqueness.
 
 ### The `prepare-data-for-redshift` Pipeline
 
 ![prepare-data-dag](./diagrams-and-visuals/prepare-data-for-redshift-dag.png)
 
-This pipeline will utilize Airflow to automatically spin up an EMR cluster, add the following Spark jobs (detailed below) as steps, before terminating the cluster. This will ensure we don't overspend on big data processing.
+This pipeline will utilize Airflow to automatically spin up an EMR cluster and add the following Spark jobs (detailed below) as steps before terminating the cluster. This will ensure we don't overspend on big data processing.
 
 *Note: The `watch_` tasks above are `EmrStepSensor` tasks that monitor the progress and status of the previous tasks.*
 
@@ -182,7 +180,7 @@ This pipeline will utilize Airflow to automatically spin up an EMR cluster, add 
     * The preprocessed data will be stored in `.parquet` files on S3 to both minimize space and to be easily accessed by the next Spark job.
 
 * The `immigration-fact-and-dimension-creation.py` script will perform the following functions:
-    * Create the immigration fact table in line with the schema above by grouping by the port of entry, profile ID, and arrival date and pivoting by the transportation mode and purpose of visit. An ID column will be added using the `monotonically_increasing_id()` function. A month and a year column will be calculated for partitioning purposes.
+    * Create the immigration fact table in line with the schema above by grouping by the port of entry, profile ID, and arrival date and pivoting by the transportation mode and purpose of visit. An ID column will be added using the `monotonically_increasing_id()` Spark function. A month and a year column will be calculated for partitioning purposes.
     * Create the traveller profile dimension table by simply selecting the distinct combinations of profile ID, gender, age category, region, and global region.
     * Create the datetime dimension table by obtaining a unique list of arrival dates and extracting various date components from them. Create duplicate month and year columns for partitioning (since these are dropped when saved by Spark and unlike Spark, Redshift can't read them in from the partitioned folder structure).
     * All of the above will be stored in `.csv` files on S3.
@@ -190,19 +188,19 @@ This pipeline will utilize Airflow to automatically spin up an EMR cluster, add 
 * The `airport-codes-processing.py` script will perform the following functions:
     * Process the data by filtering out non-US ports, extracting the state ID from the `iso_region` column, and dropping any records with non-standard state IDs.
     * Prepare the ports fact table by getting a count of all records grouped by state ID and type of port. An ID column will be added using the `monotonically_increasing_id()` function.
-    * Prepare a state and city lookup table (the first of two) to be used to assign state IDs to the city names in the Temperature dataset.
+    * Prepare a state-and-city lookup table (the first of two) to be used to assign state IDs to the city names in the Temperature dataset.
     * The tables will be stored as `.csv` files on S3.
 
 * The `demographic-data-processing.py` script will perform the following functions:
-    * Prepare a state and city lookup table (the second of two) to be used to assign state IDs to the city names in the Temperature dataset.
+    * Prepare a state-and-city lookup table (the second of two) to be used to assign state IDs to the city names in the Temperature dataset.
     * Prepare the state dimension table by simply getting the distinct combinations of state ID (the 2-letter abbreviation of a state's name) and state name.
     * Create the demographics fact table by splitting the race data out from the table before dropping duplicate city-wise records, calculating the total number of households by city, grouping much of the numerical data by state ID, and calculating average household size by state. The split out race data will be pivoted so it can be merged with the other data at a state ID level.
     * The tables will be stored as `.csv` files on S3.
 
 * The `temperature-data-processing.py` script will perform the following functions:
-    * Preprocess the data by filtering out non-US records, combining the two state and city lookup tables (dropping duplicates), and mapping in the state IDs for each city.
+    * Preprocess the data by filtering out non-US records, combining the two state-and-city lookup tables (dropping duplicates), and mapping in the state IDs for each city.
     * Create the temperature fact table by extracting the year from the date, calculating the number of cities and observations per state, and calculating yearly summary statistics (mean, median, minimum, and maximum) on the average temperature column for each state. An ID column will be added using the `monotonically_increasing_id()` function. A duplicate year column will be created for partitioning (since these are dropped when saved by Spark and unlike Spark, Redshift can't read them in from the partitioned folder structure).
-    * The table will be stored as as `.csv` files on S3.
+    * The table will be stored as `.csv` files on S3.
 
 ### The `load-data-into-redshift` Pipeline
 
@@ -287,7 +285,7 @@ In the end, your folder structure should resemble the following:
 
 ### Airflow Requirements
 
-I chose to setup a development version of Airflow on my own computer and install the packages required for my pipelines. I did this on Pop!_OS 21.10 (Linux) by running the following commands on the terminal:
+I chose to set up a development version of Airflow on my own computer and install the packages required for my pipelines. I did this on Pop!_OS 21.10 (Linux) by running the following commands on the terminal:
 
 1. Create an environment variable containing the (future) location of the Airflow directory: `export AIRFLOW_HOME=~/airflow`.
 2. Set the PATH variable for Airflow by opening the `.bashrc` file (`gedit ~/.bashrc`) and adding `PATH=$PATH:~/.local/bin` to the end.
@@ -330,7 +328,11 @@ Visit `localhost:7777`, login to Airflow and configure the following connections
     * First run `prepare-data-for-redshift`.
     * Finally run `load-data-into-redshift`.
 
-Apart from declared variable types in the DDL code that creates the relational tables on Redshift, the `check_for_records` and `check_for_uniques` tasks at the end of the second pipeline will ensure that the data has been loaded into Redshift in the appropriate manner.
+### Data Quality Checks
+
+Apart from the explicitly declared variable types in the DDL code that creates the relational tables on Redshift, the `check_for_records` and `check_for_uniques` tasks at the end of the second pipeline will ensure that the data has been loaded into Redshift in the appropriate manner.
+
+### Pipeline Frequency
 
 The pipelines can be run again if the raw datasets are ever updated. For example, if we obtain I-94 Immigration data from 2017 to 2021 or Temperature data for the years following 2013, the raw data files in the S3 `raw_data/` folder can be updated and both pipelines should be executed again in the same order.
 
@@ -389,7 +391,8 @@ And this would return the following results (this table has been truncated):
 
 * We could scale the EMR cluster outwards by running our data transformations and aggregations on a greater number of worker nodes, collectively handling a larger subset of the data at a time.
 * We could consider scaling our EMR cluster upwards as well by perhaps creating a cluster with worker nodes that are optimized for memory-intensive tasks.
-* While Distribution Keys have already been assigned in the DDL for each of the Redshift tables, when we're dealing with larger datasets, we may want to experiment with how the data is distributed and sorted across the Redshift cluster based on the exact queries our climate scientists want to run frequently. This way, we can ensure sure the entire cluster is being used effectively so any complex queries are run efficiently.
+* If our climate scientists want to increase the granularity of the data (and thereby perform lower-level aggregations), we may need to consider increasing the attached storage space of our Redshift database as well.
+
 
 **What if the pipelines need to be run on a daily basis by 7am?**
 
@@ -401,3 +404,4 @@ And this would return the following results (this table has been truncated):
 
 * According to [Amazon](https://docs.aws.amazon.com/redshift/latest/mgmt/amazon-redshift-limits.html), Redshift allows for 500 concurrent connections, so our current implementation will allow for the database to be accessed by 100+ people.
 * However, with 100+ people querying the data at the same time, we'll probably need to consider adding both more nodes and more powerful nodes to our cluster, especially if the majority of their queries tend to contain a lot of joins and aggregations.
+* While Distribution Keys have already been assigned in the DDL for each of the Redshift tables, when we're dealing with larger datasets, we may want to experiment with how the data is distributed and sorted across the Redshift cluster based on the exact queries our climate scientists want to run frequently. This way, we can ensure sure the entire cluster is being used effectively so any complex queries are run efficiently.
