@@ -1,6 +1,6 @@
 # Udacity Capstone Project: US Immigration, Demographics, and Climate Change
 
-This is a Capstone Project for the Udacity Data Engineering Nanodegree.
+This is the Capstone Project of the Udacity Data Engineering Nanodegree.
 
 # Project Summary
 
@@ -50,7 +50,7 @@ We have 4 datasets provided by Udacity:
 
 # Data Exploration
 
-An iPython Notebook was used to explore the data (or sample data) and can be found in the following repository location: `/supplementary-files/notebooks/data-exploration.ipynb`.
+An iPython Notebook was used to explore the data (or sample data) and can be found in the following repository location: `/supplementary-scripts/notebooks/data-exploration.ipynb`.
 
 The findings below contain both observations and ideas on how the data should be cleaned or transformed.
 
@@ -408,4 +408,4 @@ And this would return the following results (this table has been truncated):
 
 ---
 
-Disclaimer: This project was done by Maas Stefan Jaro for the Udacity Data Engineering Nanodegree in line with the Capstone Project's requirements.
+Disclaimer: This repository was created by Maas Stefan Jaro as part of the Udacity Data Engineering Nanodegree's final requirement - a self-defined Capstone Project.
