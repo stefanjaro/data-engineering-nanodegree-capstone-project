@@ -405,3 +405,7 @@ And this would return the following results (this table has been truncated):
 * According to [Amazon](https://docs.aws.amazon.com/redshift/latest/mgmt/amazon-redshift-limits.html), Redshift allows for 500 concurrent connections, so our current implementation will allow for the database to be accessed by 100+ people.
 * However, with 100+ people querying the data at the same time, we'll probably need to consider adding both more nodes and more powerful nodes to our cluster, especially if the majority of their queries tend to contain a lot of joins and aggregations.
 * While Distribution Keys have already been assigned in the DDL for each of the Redshift tables, when we're dealing with larger datasets, we may want to experiment with how the data is distributed and sorted across the Redshift cluster based on the exact queries our climate scientists want to run frequently. This way, we can ensure sure the entire cluster is being used effectively so any complex queries are run efficiently.
+
+---
+
+Disclaimer: This project was done by Maas Stefan Jaro for the Udacity Data Engineering Nanodegree in line with the Capstone Project's requirements.
