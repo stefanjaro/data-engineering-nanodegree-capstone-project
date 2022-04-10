@@ -92,7 +92,11 @@ The findings below contain both observations and ideas on how the data should be
 
 ## Conceptual Data Model
 
-The data model will follow a Star Schema with 4 Fact Tables and 3 Dimension Tables:
+The data model will follow a Star Schema with 4 Fact Tables and 3 Dimension Tables. 
+
+This structure will make it highly convenient for the climate scientists to quickly pull the data points they require for their analyses with minimal joins and aggregations.
+
+Furthermore, at this level of aggregation, the data is bound to be of smaller size and thus queries are likely to return results much faster.
 
 ![data-model](./diagrams-and-visuals/DataModel.png)
 
@@ -212,7 +216,9 @@ This pipeline will require a Redshift cluster to have already been created. It w
     * The first data check will query every table to ensure it has a non-zero number of records.
     * The second data check will query the primary keys of each table to ensure they are unique by calculating their number of distinct values and comparing it to the number of records in a table.
 
-# Running the Pipelines
+# Running the Pipelines (ETL Process)
+
+## Requirements
 
 ### Initial Data and Scripts on S3
 
@@ -267,6 +273,111 @@ In the end, your folder structure should resemble the following:
     --temperature-data-processing.py
     --shared_spark_vars.py
 ```
-### AWS Requirements
+### Other AWS Requirements
 
-to-do
+1. Create an IAM User with the `AdministratorAccess` policy attached. Make sure to save your Access Key and Secret Access Key.
+2. Create an IAM Role for Redshift as the Trusted Entity. Attach the `AmazonS3ReadOnlyAccess` policy to it.
+3. Create a Security Group to authorize access to a Redshift cluster from either your IP address or anywhere (0.0.0.0/0). The port range should be `5439`.
+4. Create a Redshift cluster with the following specifications:
+    * Within the same region as your S3 bucket.
+    * A Subnet Group that covers all availability zones within the selected region.
+    * At least 2 `dc2.large` nodes.
+    * Associate the IAM Role created above with it.
+    * Make the cluster publicly accessible.
+
+### Airflow Requirements
+
+I chose to setup a development version of Airflow on my own computer and install the packages required for my pipelines. I did this on Pop!_OS 21.10 (Linux) by running the following commands on the terminal:
+
+1. Create an environment variable containing the (future) location of the Airflow directory: `export AIRFLOW_HOME=~/airflow`.
+2. Set the PATH variable for Airflow by opening the `.bashrc` file (`gedit ~/.bashrc`) and adding `PATH=$PATH:~/.local/bin` to the end.
+3. Install the latest version of airflow for Python 3.9 (change the version number at the very end of the command for a different version of Python): `pip install "apache-airflow==2.2.5" --constraint "https://raw.githubusercontent.com/apache/airflow/constraints-2.2.5/constraints-3.9.txt"`.
+4. Install the Postgres providers package: `pip install 'apache-airflow-providers-postgres'`.
+5. Install the Amazon providers package: `pip install 'apache-airflow-providers-amazon'`.
+6. Initialize the Airflow database: `airflow db init`.
+7. Create an admin user: `airflow users create --username <username> --firstname <first_name> --lastname <last_name> --role Admin --email <email_address>`.
+8. Now open two terminals.
+9. In the first terminal, start the airflow web server on an open port (say 7777): `airflow webserver --port 7777`.
+10. In the second terminal, start the airflow scheduler: `airflow scheduler`.
+
+Visit `localhost:7777`, login to Airflow and configure the following connections:
+
+* A connection named `aws_credentials`:
+    * The Connection Type should be set to `Amazon Web Services` or `aws` based on the version of Airflow you're using.
+    * The Login should be your IAM admin user's Access Key.
+    * The Password should be your IAM admin user's Secret Access Key.
+
+* A connection named `aws_redshift`:
+    * The Connection Type should be set to `Amazon Redshift`.
+    * The Host should be the endpoint of your cluster (without the schema and port number).
+    * The Schema should be the name of your database.
+    * The Login would be the admin username.
+    * The Password would be the admin password.
+    * The Port should be the database's port you entered (generally 5439).
+
+* A connection named `pg_redshift`:
+    * The Connection Type should be set to `Postgres`.
+    * The Host, Schema, Login, Password, and Port should all be the same as the above.
+
+**Note on Redshift Connections:** The reason we have a duplicate Redshift connection with the same details is because one is required for the `S3ToRedshiftOperator` that's provided by the Amazon providers package and the other is required for the inbuilt `PostgresOperator` and `PostgresHook`.
+
+## Executing the Pipelines
+
+1. Copy all the files in the `airflow/dags/` folder in this repository to your own `dags` folder. Make sure to copy the sub-folder called `helpers` that contains the table creation SQL code (`sql_create_tables.py`) and make sure this folder is stored within the `dags` folder as a sub-folder.
+2. In the `prepare-data-for-redshift.py` file, change the name of the `s3_bucket` variable to the name of the one you created. Make sure to retain the `s3://` prefix and `/` suffix at the end.
+3. In the `load-data-into-redshift.py` file, change the name of the `s3_bucket` variable to the name of the one you created. 
+4. Head back into the Airflow web UI and run the DAGs in the following order (you will need to manually trigger the run):
+    * First run `prepare-data-for-redshift`.
+    * Finally run `load-data-into-redshift`.
+
+Apart from declared variable types in the DDL code that creates the relational tables on Redshift, the `check_for_records` and `check_for_uniques` tasks at the end of the second pipeline will ensure that the data has been loaded into Redshift in the appropriate manner.
+
+### Running Queries
+
+Queries can be run against the data using either Python or the Query Editor that Amazon provides for Redshift.
+
+For example, if our climate scientists wanted to look at the number of foreign travellers to each state as a percentage of the total number of travellers and compare it against the number of foreign residents in each state as a percentage of the total number of foreign residents, they could run the following SQL code:
+
+```sql
+WITH t1 AS (
+  	SELECT state_id, SUM(all_travellers) AS state_total_travellers
+  	FROM fact_immigration
+  	GROUP BY 1
+),
+	t2 AS (
+  	SELECT state_id, foreign_pop AS state_foreign_pop
+ 	FROM fact_demographics
+), 
+	t3 AS (
+  	SELECT state_id, SUM(state_total_travellers) OVER () AS country_total_travellers
+    FROM t1
+),
+	t4 AS (
+    SELECT state_id, SUM(foreign_pop) OVER () country_total_foreign_pop
+    FROM fact_demographics
+)
+
+SELECT t1.state_id,
+	t1.state_total_travellers,
+    t2.state_foreign_pop,
+	ROUND((CAST(t1.state_total_travellers AS DECIMAL) / t3.country_total_travellers) * 100, 4) AS state_traveller_perc,
+    ROUND((CAST(t2.state_foreign_pop AS DECIMAL) / t4.country_total_foreign_pop) * 100, 3) AS foreign_pop_perc
+FROM t1
+JOIN t2 ON t1.state_id = t2.state_id
+JOIN t3 on t1.state_id = t3.state_id
+JOIN t4 on t1.state_id = t4.state_id
+WHERE t1.state_total_travellers IS NOT NULL AND t2.state_foreign_pop IS NOT NULL
+ORDER BY 3 DESC;
+```
+
+And this would return the following results (this table has been truncated):
+
+|state_id|state_total_travellers|state_foreign_pop|state_traveller_perc|foreign_pop_perc|
+|--------|----------------------|-----------------|--------------------|----------------|
+|CA      |6518025               |7448257          |18.6349             |31.478          |
+|NY      |6297087               |3438081          |18.0033             |14.530          |
+|TX      |2388276               |2942164          |6.8280              |12.434          |
+|FL      |7811105               |1688931          |22.3318             |7.138           |
+|IL      |1577276               |941735           |4.5094              |3.980           |
+|AZ      |155407                |682313           |0.4443              |2.884           |
+
