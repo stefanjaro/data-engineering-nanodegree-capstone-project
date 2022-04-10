@@ -169,6 +169,8 @@ There'll be two pipelines:
 
 This pipeline will utilize Airflow to automatically spin up an EMR cluster, add the following Spark jobs (detailed below) as steps, before terminating the cluster. This will ensure we don't overspend on big data processing.
 
+*Note: The `watch_` tasks above are `EmrStepSensor` tasks that monitor the progress and status of the previous tasks.*
+
 * The `immigration-data-preprocessing.py` script will perform the following functions:
     * Generate the list of `.sas7bdat` that contain the I-94 Immigration Data and need to be iterated across for the transformationss detailed below.
     * Map the labels for the codified mode, port, visa, and citizenship columns using mapping files that were created using the reference data held on the `I94_SAS_Labels_Description.SAS` file.
@@ -211,5 +213,60 @@ This pipeline will require a Redshift cluster to have already been created. It w
     * The second data check will query the primary keys of each table to ensure they are unique by calculating their number of distinct values and comparing it to the number of records in a table.
 
 # Running the Pipelines
+
+### Initial Data and Scripts on S3
+
+Before we can run any of the pipelines above, we need to first add the raw data files, the mapping files, and the PySpark scripts to an S3 bucket.
+
+1. First create an S3 bucket (I named mine `dendcapstoneproject`).
+2. Then create a folder within the bucket called `raw_data` and store the following files in it:
+    * `18-83510-I94-Data-2016/`: Folder of data provided by Udacity
+    * `airport-codes_csv.csv`: Provided by Udacity
+    * `GlobalLandTemperaturesByCity.csv`: Provided by Udacity
+    * `us-cities-demographics.csv`: Provided by Udacity
+    * `i94cit_labels.csv`: You'll find this in the `/data/additional_data/` folder in this repository. These labels were extracted from the `I94_SAS_Labels_Description.SAS` file.
+    * `i94mode_labels.csv`: You'll find this in the `/data/additional_data/` folder in this repository. These labels were extracted from the `I94_SAS_Labels_Description.SAS` file.
+    * `i94port_labels.csv`: You'll find this in the `/data/additional_data/` folder in this repository. These labels were extracted from the `I94_SAS_Labels_Description.SAS` file.
+    * `i94cit_labels.csv`: You'll find this in the `/data/additional_data/` folder in this repository. These labels were extracted from the `I94_SAS_Labels_Description.SAS` file. The region and global region columns were added using data from Wikipedia and other online sources.
+3. Open up the `shared_spark_vars.py` script in the `spark-jobs` folder in this repository and update the `s3_bucket_name` variable with the name of your bucket.
+4. Create another folder within the bucket called `scripts` and place all the files in the `spark-jobs` folder in this repository in it (including the amended `shared_spark_vars.py` file).
+
+In the end, your folder structure should resemble the following:
+
+```
+--raw_data/
+
+    --18-83510-I94-Data-2016/
+        --i94_jan16_sub.sas7bdat
+        --i94_feb16_sub.sas7bdat
+        --i94_mar16_sub.sas7bdat
+        --i94_apr16_sub.sas7bdat
+        --i94_may16_sub.sas7bdat
+        --i94_jun16_sub.sas7bdat
+        --i94_jul16_sub.sas7bdat
+        --i94_aug16_sub.sas7bdat
+        --i94_sep16_sub.sas7bdat
+        --i94_oct16_sub.sas7bdat
+        --i94_nov16_sub.sas7bdat
+        --i94_dec16_sub.sas7bdat
+
+    --airport-codes_csv.csv
+    --GlobalLandTemperaturesByCity.csv
+    --us-cities-demographics.csv
+    --i94visa_labels.csv
+    --i94port_labels.csv
+    --i94mode_labels.csv
+    --i94cit_labels.csv
+
+--scripts/
+
+    --immigration-data-preprocessing.py
+    --immigration-fact-and-dimension-creation.py
+    --airport-codes-processing.py
+    --demographics-data-processing.py
+    --temperature-data-processing.py
+    --shared_spark_vars.py
+```
+### AWS Requirements
 
 to-do
